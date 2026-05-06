@@ -5,7 +5,7 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' }
 });
 
-// Request interceptor – add JWT token if present in localStorage
+// Request interceptor – add JWT token if present
 api.interceptors.request.use(config => {
   const token = localStorage.getItem('token');
   if (token) {
@@ -14,12 +14,12 @@ api.interceptors.request.use(config => {
   return config;
 }, error => Promise.reject(error));
 
-// Optional: Response interceptor for 401 errors (token expired)
+// Response interceptor – handle 401 unauthorized (token expired)
 api.interceptors.response.use(
   response => response,
   error => {
     if (error.response?.status === 401) {
-      // Optionally clear token and redirect to login
+      // Clear token and redirect to login
       localStorage.removeItem('token');
       window.location.href = '/login';
     }
