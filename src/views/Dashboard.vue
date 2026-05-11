@@ -4,18 +4,9 @@
     <div class="dashboard-container">
       <!-- Tabs -->
       <div class="tabs">
-        <button 
-          @click="activeTab = 'utama'" 
-          :class="{ active: activeTab === 'utama' }"
-        >UTAMA</button>
-        <button 
-          @click="activeTab = 'laporan'" 
-          :class="{ active: activeTab === 'laporan' }"
-        >LAPORAN</button>
-        <button 
-          @click="activeTab = 'setelan'" 
-          :class="{ active: activeTab === 'setelan' }"
-        >SETELAN</button>
+        <button @click="activeTab = 'utama'" :class="{ active: activeTab === 'utama' }">UTAMA</button>
+        <button @click="activeTab = 'laporan'" :class="{ active: activeTab === 'laporan' }">LAPORAN</button>
+        <button @click="activeTab = 'setelan'" :class="{ active: activeTab === 'setelan' }">SETELAN</button>
       </div>
 
       <!-- ================= TAB UTAMA ================= -->
@@ -60,46 +51,45 @@
 
       <!-- ================= TAB LAPORAN ================= -->
       <div v-if="activeTab === 'laporan'">
-        <div class="report-section">
-          <div class="filter-bar">
-            <button @click="setFilter('7days')" :class="{ active: activeFilter === '7days' }">7 hari terakhir</button>
-            <button @click="setFilter('30days')" :class="{ active: activeFilter === '30days' }">30 hari terakhir</button>
-            <button @click="setFilter('custom')" :class="{ active: activeFilter === 'custom' }">Rentang Tanggal</button>
-          </div>
-
-          <div v-if="activeFilter === 'custom'" class="date-range">
-            <label>Dari: <input type="date" v-model="customFrom" @change="fetchReport" /></label>
-            <label>Sampai: <input type="date" v-model="customTo" @change="fetchReport" /></label>
-          </div>
-
-          <table class="report-table">
-            <thead>
-              <tr>
-                <th>Tanggal</th>
-                <th>Keterangan</th>
-                <th>Jumlah (Rp)</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="(item, idx) in reportData" :key="idx">
-                <td>{{ formatDate(item.date) }}</td>
-                <td>{{ item.note || '-' }}</td>
-                <td class="amount" :class="{ 'expense': item.total_expense > 0, 'income': item.total_income > 0 }">
-                  {{ formatRupiah(item.total_expense > 0 ? item.total_expense : item.total_income) }}
-                </td>
-              </tr>
-              <tr v-if="reportData.length === 0">
-                <td colspan="3" class="empty">Tidak ada data</td>
-              </tr>
-            </tbody>
-            <tfoot v-if="reportData.length > 0">
-              <tr>
-                <th colspan="2">Total (Pemasukan - Pengeluaran)</th>
-                <th class="total-amount">{{ formatRupiah(totalReportAmount) }}</th>
-              </tr>
-            </tfoot>
-          </table>
+        <div class="filter-bar">
+          <button @click="setFilter('7days')" :class="{ active: activeFilter === '7days' }">7 hari terakhir</button>
+          <button @click="setFilter('30days')" :class="{ active: activeFilter === '30days' }">30 hari terakhir</button>
+          <button @click="setFilter('custom')" :class="{ active: activeFilter === 'custom' }">Rentang Tanggal</button>
         </div>
+
+        <!-- Date picker native (tanpa library) -->
+        <div v-if="activeFilter === 'custom'" class="date-range">
+          <label>Dari: <input type="date" v-model="customFrom" @change="fetchReport" /></label>
+          <label>Sampai: <input type="date" v-model="customTo" @change="fetchReport" /></label>
+        </div>
+
+        <table class="report-table">
+          <thead>
+            <tr>
+              <th>Tanggal</th>
+              <th>Keterangan</th>
+              <th>Jumlah (Rp)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(item, idx) in reportData" :key="idx">
+              <td>{{ formatDate(item.date) }}</td>
+              <td>{{ item.note || '-' }}</td>
+              <td class="amount" :class="{ 'expense': item.total_expense > 0, 'income': item.total_income > 0 }">
+                {{ formatRupiah(item.total_expense > 0 ? item.total_expense : item.total_income) }}
+              </td>
+            </tr>
+            <tr v-if="reportData.length === 0">
+              <td colspan="3" class="empty">Tidak ada data</td>
+            </tr>
+          </tbody>
+          <tfoot v-if="reportData.length > 0">
+            <tr>
+              <th colspan="2">Total (Pemasukan - Pengeluaran)</th>
+              <th class="total-amount">{{ formatRupiah(totalReportAmount) }}</th>
+            </tr>
+          </tfoot>
+        </table>
       </div>
 
       <!-- ================= TAB SETELAN ================= -->
@@ -239,7 +229,6 @@ const fetchCategories = async () => {
 };
 
 const getDetailsForDate = (date) => detailsData.value.filter(item => item.date === date);
-
 const toggleDetails = (date) => {
   expandedDate.value = expandedDate.value === date ? null : date;
 };
@@ -322,27 +311,26 @@ const fetchReport = async () => {
 };
 
 // ================= INISIALISASI =================
-onMounted(() => {
-  fetchSummary();
-  fetchDetails();
-  fetchCategories();
+onMounted(async () => {
+  await fetchSummary();
+  await fetchDetails();
+  await fetchCategories();
   const to = new Date();
   const from = new Date();
   from.setDate(to.getDate() - 30);
   customFrom.value = from.toISOString().slice(0, 10);
   customTo.value = to.toISOString().slice(0, 10);
-  fetchReport();
+  await fetchReport();
 });
 </script>
 
 <style scoped>
+/* ========== STYLE (sama seperti sebelumnya, hanya ditambah sedikit untuk date picker) ========== */
 .dashboard-container {
   max-width: 800px;
   margin: 0 auto;
   padding: 1rem;
 }
-
-/* Tabs */
 .tabs {
   display: flex;
   gap: 1rem;
@@ -362,8 +350,6 @@ onMounted(() => {
   color: #42b983;
   border-bottom: 2px solid #42b983;
 }
-
-/* Header & Hari Ini */
 .header {
   text-align: center;
   margin-bottom: 2rem;
@@ -389,8 +375,6 @@ onMounted(() => {
   border-radius: 25px;
   cursor: pointer;
 }
-
-/* Daftar transaksi expandable */
 .transaction-list {
   margin-top: 1rem;
 }
@@ -445,8 +429,6 @@ onMounted(() => {
   text-align: center;
   color: #999;
 }
-
-/* Laporan */
 .filter-bar {
   display: flex;
   gap: 0.5rem;
@@ -468,6 +450,11 @@ onMounted(() => {
   margin-bottom: 1rem;
   display: flex;
   gap: 1rem;
+}
+.date-range input {
+  padding: 0.4rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
 }
 .report-table {
   width: 100%;
@@ -510,8 +497,6 @@ onMounted(() => {
   padding: 2rem;
   color: gray;
 }
-
-/* Modal */
 .modal {
   position: fixed;
   top: 0;
