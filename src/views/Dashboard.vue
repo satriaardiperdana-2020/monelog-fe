@@ -2,92 +2,144 @@
   <div>
     <Navbar />
     <div class="dashboard-container">
-      <div class="header">
-        <h2>Catatan Keuangan</h2>
-        <div class="tabs">
-          <span class="active">UTAMA</span>
-          <span>LAPORAN</span>
-          <span>SETELAN</span>
-        </div>
-        <div class="today-summary">
-          <div>Hari Ini, {{ today }}</div>
-          <div class="amounts">
-            <span>Rp{{ formatNumber(totalIncomeToday) }}</span>
-            <span>Rp{{ formatNumber(totalExpenseToday) }}</span>
-          </div>
-        </div>
-        <button @click="showAddModal = true" class="btn-add">Tambah</button>
+      <!-- Tabs -->
+      <div class="tabs">
+        <button 
+          @click="activeTab = 'utama'" 
+          :class="{ active: activeTab === 'utama' }"
+        >UTAMA</button>
+        <button 
+          @click="activeTab = 'laporan'" 
+          :class="{ active: activeTab === 'laporan' }"
+        >LAPORAN</button>
+        <button 
+          @click="activeTab = 'setelan'" 
+          :class="{ active: activeTab === 'setelan' }"
+        >SETELAN</button>
       </div>
 
-      <!-- Daftar ringkasan per hari (expandable) -->
-      <div class="transaction-list">
-        <div v-for="item in dailyData" :key="item.date" class="day-group">
-          <div class="day-header" @click="toggleDetails(item.date)">
-            <div class="date">{{ formatDate(item.date) }}</div>
-            <div class="day-summary">
-              <span class="expense">Pengeluaran Rp{{ formatNumber(item.total_expense) }}</span>
-              <span class="income">Pemasukan Rp{{ formatNumber(item.total_income) }}</span>
+      <!-- ================= TAB UTAMA ================= -->
+      <div v-if="activeTab === 'utama'">
+        <div class="header">
+          <h2>Catatan Keuangan</h2>
+          <div class="today-summary">
+            <div>Hari Ini, {{ today }}</div>
+            <div class="amounts">
+              <span>Rp{{ formatNumber(totalIncomeToday) }}</span>
+              <span>Rp{{ formatNumber(totalExpenseToday) }}</span>
             </div>
           </div>
+          <button @click="showAddModal = true" class="btn-add">Tambah</button>
+        </div>
 
-          <!-- Detail transaksi untuk tanggal yang dipilih -->
-          <div v-if="expandedDate === item.date" class="day-details">
-            <div
-              v-for="detail in getDetailsForDate(item.date)"
-              :key="detail.id || detail.note + detail.category_name"
-              class="detail-row"
-            >
-              <div class="detail-info">
-                <span class="detail-name">{{ detail.category_name }}</span>
-                <span class="detail-note">{{ detail.note || '-' }}</span>
-              </div>
-              <div class="detail-amount" :class="detail.category_type">
-                {{ detail.category_type === 'expense' ? 'Pengeluaran' : 'Pemasukan' }}
-                Rp{{ formatNumber(detail.category_type === 'expense' ? detail.total_expense : detail.total_income) }}
+        <div class="transaction-list">
+          <div v-for="item in dailyData" :key="item.date" class="day-group">
+            <div class="day-header" @click="toggleDetails(item.date)">
+              <div class="date">{{ formatDate(item.date) }}</div>
+              <div class="day-summary">
+                <span class="expense">Pengeluaran Rp{{ formatNumber(item.total_expense) }}</span>
+                <span class="income">Pemasukan Rp{{ formatNumber(item.total_income) }}</span>
               </div>
             </div>
-            <div v-if="getDetailsForDate(item.date).length === 0" class="no-detail">
-              Tidak ada transaksi detail
+            <div v-if="expandedDate === item.date" class="day-details">
+              <div v-for="detail in getDetailsForDate(item.date)" :key="detail.id" class="detail-row">
+                <div class="detail-info">
+                  <span class="detail-name">{{ detail.category_name }}</span>
+                  <span class="detail-note">{{ detail.note || '-' }}</span>
+                </div>
+                <div class="detail-amount" :class="detail.category_type">
+                  {{ detail.category_type === 'expense' ? 'Pengeluaran' : 'Pemasukan' }}
+                  Rp{{ formatNumber(detail.category_type === 'expense' ? detail.total_expense : detail.total_income) }}
+                </div>
+              </div>
+              <div v-if="getDetailsForDate(item.date).length === 0" class="no-detail">Tidak ada transaksi detail</div>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Modal Tambah Transaksi (sama seperti sebelumnya) -->
-      <div v-if="showAddModal" class="modal" @click.self="closeModal">
-        <div class="modal-content">
-          <h3>Tambah Transaksi</h3>
-          <div class="form-group">
-            <label>Tipe</label>
-            <select v-model="newTransaction.type" @change="filterCategories">
-              <option value="expense">Pengeluaran</option>
-              <option value="income">Pemasukan</option>
-            </select>
+      <!-- ================= TAB LAPORAN ================= -->
+      <div v-if="activeTab === 'laporan'">
+        <div class="report-section">
+          <div class="filter-bar">
+            <button @click="setFilter('7days')" :class="{ active: activeFilter === '7days' }">7 hari terakhir</button>
+            <button @click="setFilter('30days')" :class="{ active: activeFilter === '30days' }">30 hari terakhir</button>
+            <button @click="setFilter('custom')" :class="{ active: activeFilter === 'custom' }">Rentang Tanggal</button>
           </div>
-          <div class="form-group">
-            <label>Kategori</label>
-            <select v-model="newTransaction.category_id">
-              <option v-for="cat in filteredCategories" :key="cat.id" :value="cat.id">
-                {{ cat.name }}
-              </option>
-            </select>
+
+          <div v-if="activeFilter === 'custom'" class="date-range">
+            <label>Dari: <input type="date" v-model="customFrom" @change="fetchReport" /></label>
+            <label>Sampai: <input type="date" v-model="customTo" @change="fetchReport" /></label>
           </div>
-          <div class="form-group">
-            <label>Jumlah</label>
-            <input type="number" v-model="newTransaction.amount" />
-          </div>
-          <div class="form-group">
-            <label>Judul</label>
-            <input type="text" v-model="newTransaction.note" />
-          </div>
-          <div class="form-group">
-            <label>Tanggal</label>
-            <input type="date" v-model="newTransaction.date" />
-          </div>
-          <div class="modal-buttons">
-            <button @click="closeModal">Batal</button>
-            <button @click="saveTransaction">Simpan</button>
-          </div>
+
+          <table class="report-table">
+            <thead>
+              <tr>
+                <th>Tanggal</th>
+                <th>Keterangan</th>
+                <th>Jumlah (Rp)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(item, idx) in reportData" :key="idx">
+                <td>{{ formatDate(item.date) }}</td>
+                <td>{{ item.note || '-' }}</td>
+                <td class="amount" :class="{ 'expense': item.total_expense > 0, 'income': item.total_income > 0 }">
+                  {{ formatRupiah(item.total_expense > 0 ? item.total_expense : item.total_income) }}
+                </td>
+              </tr>
+              <tr v-if="reportData.length === 0">
+                <td colspan="3" class="empty">Tidak ada data</td>
+              </tr>
+            </tbody>
+            <tfoot v-if="reportData.length > 0">
+              <tr>
+                <th colspan="2">Total (Pemasukan - Pengeluaran)</th>
+                <th class="total-amount">{{ formatRupiah(totalReportAmount) }}</th>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+
+      <!-- ================= TAB SETELAN ================= -->
+      <div v-if="activeTab === 'setelan'" class="settings-placeholder">
+        <p>Halaman pengaturan (coming soon)</p>
+      </div>
+    </div>
+
+    <!-- ================= MODAL TAMBAH TRANSAKSI ================= -->
+    <div v-if="showAddModal" class="modal" @click.self="closeModal">
+      <div class="modal-content">
+        <h3>Tambah Transaksi</h3>
+        <div class="form-group">
+          <label>Tipe</label>
+          <select v-model="newTransaction.type" @change="filterCategories">
+            <option value="expense">Pengeluaran</option>
+            <option value="income">Pemasukan</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Kategori</label>
+          <select v-model="newTransaction.category_id">
+            <option v-for="cat in filteredCategories" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Jumlah</label>
+          <input type="number" v-model="newTransaction.amount" />
+        </div>
+        <div class="form-group">
+          <label>Judul</label>
+          <input type="text" v-model="newTransaction.note" />
+        </div>
+        <div class="form-group">
+          <label>Tanggal</label>
+          <input type="date" v-model="newTransaction.date" />
+        </div>
+        <div class="modal-buttons">
+          <button @click="closeModal">Batal</button>
+          <button @click="saveTransaction">Simpan</button>
         </div>
       </div>
     </div>
@@ -95,18 +147,17 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import api from '../services/api';
 import Navbar from '../components/Navbar.vue';
 
-// Data ringkasan per hari (dari /reports/main-summary)
-const dailyData = ref([]);
-// Data detail transaksi per item (dari /reports/details-by-date)
-const detailsData = ref([]);
-// Tanggal yang sedang diexpand (menampilkan detail)
-const expandedDate = ref(null);
+// ================= DATA REAKTIF =================
+const activeTab = ref('utama');
 
-// Data untuk kategori dan modal tambah
+// Data untuk tab UTAMA
+const dailyData = ref([]);
+const detailsData = ref([]);
+const expandedDate = ref(null);
 const categories = ref([]);
 const showAddModal = ref(false);
 const newTransaction = ref({
@@ -117,22 +168,45 @@ const newTransaction = ref({
   date: new Date().toISOString().slice(0, 10)
 });
 
-// Helper: hari ini
+// Data untuk tab LAPORAN
+const activeFilter = ref('7days');
+const customFrom = ref('');
+const customTo = ref('');
+const reportData = ref([]);
+
+// ================= HELPERS =================
 const today = new Date().toISOString().slice(0, 10);
+
+const formatNumber = (num) => {
+  if (num === undefined || num === null || isNaN(num)) return '0';
+  return new Intl.NumberFormat('id-ID').format(num);
+};
+
+const formatDate = (dateStr) => {
+  const date = new Date(dateStr);
+  return date.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' });
+};
+
+const formatRupiah = (num) => {
+  if (num === undefined || num === null || isNaN(num)) return 'Rp0';
+  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(num);
+};
+
+// ================= TAB UTAMA =================
 const totalIncomeToday = computed(() => {
   const todayData = dailyData.value.find(d => d.date === today);
   return todayData ? todayData.total_income : 0;
 });
+
 const totalExpenseToday = computed(() => {
   const todayData = dailyData.value.find(d => d.date === today);
   return todayData ? todayData.total_expense : 0;
 });
 
-const filteredCategories = computed(() => {
-  return categories.value.filter(c => c.type === newTransaction.value.type);
-});
+const filteredCategories = computed(() => 
+  categories.value.filter(c => c.type === newTransaction.value.type)
+);
 
-// Ambil ringkasan harian (main page)
 const fetchSummary = async () => {
   try {
     const res = await api.get('/api/v1/reports/main-summary');
@@ -142,7 +216,6 @@ const fetchSummary = async () => {
   }
 };
 
-// Ambil detail transaksi (list semua item per tanggal)
 const fetchDetails = async () => {
   try {
     const res = await api.get('/api/v1/reports/details-by-date');
@@ -165,13 +238,26 @@ const fetchCategories = async () => {
   }
 };
 
-// Mendapatkan detail transaksi untuk satu tanggal
-const getDetailsForDate = (date) => {
-  return detailsData.value.filter(item => item.date === date);
-};
+const getDetailsForDate = (date) => detailsData.value.filter(item => item.date === date);
 
 const toggleDetails = (date) => {
   expandedDate.value = expandedDate.value === date ? null : date;
+};
+
+const closeModal = () => {
+  showAddModal.value = false;
+  newTransaction.value = {
+    type: 'expense',
+    category_id: categories.value.find(c => c.type === 'expense')?.id || null,
+    amount: 0,
+    note: '',
+    date: new Date().toISOString().slice(0, 10)
+  };
+};
+
+const filterCategories = () => {
+  const firstCat = categories.value.find(c => c.type === newTransaction.value.type);
+  newTransaction.value.category_id = firstCat ? firstCat.id : null;
 };
 
 const saveTransaction = async () => {
@@ -194,63 +280,93 @@ const saveTransaction = async () => {
   }
 };
 
-const closeModal = () => {
-  showAddModal.value = false;
-  newTransaction.value = {
-    type: 'expense',
-    category_id: categories.value.find(c => c.type === 'expense')?.id || null,
-    amount: 0,
-    note: '',
-    date: new Date().toISOString().slice(0, 10)
-  };
+// ================= TAB LAPORAN =================
+const setFilter = (filter) => {
+  activeFilter.value = filter;
+  fetchReport();
 };
 
-const filterCategories = () => {
-  const firstCat = categories.value.find(c => c.type === newTransaction.value.type);
-  newTransaction.value.category_id = firstCat ? firstCat.id : null;
+const totalReportAmount = computed(() => {
+  let totalIncome = 0;
+  let totalExpense = 0;
+  for (const item of reportData.value) {
+    totalIncome += item.total_income || 0;
+    totalExpense += item.total_expense || 0;
+  }
+  return totalIncome - totalExpense;
+});
+
+const fetchReport = async () => {
+  let url = '';
+  if (activeFilter.value === '7days') {
+    url = '/api/v1/reports/last7days';
+  } else if (activeFilter.value === '30days') {
+    url = '/api/v1/reports/last30days';
+  } else if (activeFilter.value === 'custom') {
+    if (!customFrom.value || !customTo.value) {
+      const to = new Date();
+      const from = new Date();
+      from.setDate(to.getDate() - 30);
+      customFrom.value = from.toISOString().slice(0, 10);
+      customTo.value = to.toISOString().slice(0, 10);
+    }
+    url = `/api/v1/reports/date-range?from=${customFrom.value}&to=${customTo.value}`;
+  }
+
+  try {
+    const res = await api.get(url);
+    reportData.value = res.data;
+  } catch (err) {
+    alert('Gagal memuat laporan');
+  }
 };
 
-// AMAN: format angka – jika undefined/null/NaN tampilkan 0
-const formatNumber = (num) => {
-  if (num === undefined || num === null || isNaN(num)) return '0';
-  return new Intl.NumberFormat('id-ID').format(num);
-};
-
-const formatDate = (dateStr) => {
-  const date = new Date(dateStr);
-  const options = { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' };
-  return date.toLocaleDateString('id-ID', options);
-};
-
+// ================= INISIALISASI =================
 onMounted(() => {
   fetchSummary();
   fetchDetails();
   fetchCategories();
+  const to = new Date();
+  const from = new Date();
+  from.setDate(to.getDate() - 30);
+  customFrom.value = from.toISOString().slice(0, 10);
+  customTo.value = to.toISOString().slice(0, 10);
+  fetchReport();
 });
 </script>
 
 <style scoped>
-/* (styling sama seperti sebelumnya, tidak diubah) */
 .dashboard-container {
   max-width: 800px;
   margin: 0 auto;
   padding: 1rem;
-  font-family: 'Segoe UI', sans-serif;
 }
+
+/* Tabs */
+.tabs {
+  display: flex;
+  gap: 1rem;
+  border-bottom: 2px solid #eee;
+  margin-bottom: 1rem;
+}
+.tabs button {
+  background: none;
+  border: none;
+  padding: 0.5rem 1rem;
+  font-size: 1rem;
+  cursor: pointer;
+  color: gray;
+  font-weight: bold;
+}
+.tabs button.active {
+  color: #42b983;
+  border-bottom: 2px solid #42b983;
+}
+
+/* Header & Hari Ini */
 .header {
   text-align: center;
   margin-bottom: 2rem;
-}
-.tabs span {
-  margin: 0 10px;
-  padding: 5px;
-  cursor: pointer;
-  color: gray;
-}
-.tabs .active {
-  border-bottom: 2px solid #42b983;
-  font-weight: bold;
-  color: black;
 }
 .today-summary {
   background: #f5f5f5;
@@ -272,8 +388,9 @@ onMounted(() => {
   padding: 0.5rem 1rem;
   border-radius: 25px;
   cursor: pointer;
-  font-weight: bold;
 }
+
+/* Daftar transaksi expandable */
 .transaction-list {
   margin-top: 1rem;
 }
@@ -290,14 +407,6 @@ onMounted(() => {
   padding: 0.75rem 1rem;
   background: #fafafa;
   cursor: pointer;
-  transition: background 0.2s;
-}
-.day-header:hover {
-  background: #f0f0f0;
-}
-.date {
-  font-weight: bold;
-  font-size: 1rem;
 }
 .day-summary {
   display: flex;
@@ -321,13 +430,6 @@ onMounted(() => {
   padding: 0.5rem 0;
   border-bottom: 1px solid #f0f0f0;
 }
-.detail-row:last-child {
-  border-bottom: none;
-}
-.detail-info {
-  display: flex;
-  flex-direction: column;
-}
 .detail-name {
   font-weight: 500;
 }
@@ -338,18 +440,78 @@ onMounted(() => {
 .detail-amount {
   font-weight: bold;
 }
-.detail-amount.expense {
-  color: #e74c3c;
-}
-.detail-amount.income {
-  color: #2ecc71;
-}
 .no-detail {
   padding: 1rem;
   text-align: center;
   color: #999;
-  font-style: italic;
 }
+
+/* Laporan */
+.filter-bar {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+.filter-bar button {
+  background: #f0f0f0;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  cursor: pointer;
+}
+.filter-bar button.active {
+  background: #42b983;
+  color: white;
+}
+.date-range {
+  margin-bottom: 1rem;
+  display: flex;
+  gap: 1rem;
+}
+.report-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.report-table th,
+.report-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid #eee;
+  text-align: left;
+}
+.report-table th {
+  background: #f8f9fa;
+  font-weight: 600;
+}
+.amount {
+  text-align: right;
+  font-family: monospace;
+}
+.amount.expense {
+  color: #e74c3c;
+}
+.amount.income {
+  color: #2ecc71;
+}
+.total-amount {
+  color: #2c3e50;
+  font-weight: bold;
+}
+.empty {
+  text-align: center;
+  color: #999;
+  padding: 2rem;
+}
+.settings-placeholder {
+  text-align: center;
+  padding: 2rem;
+  color: gray;
+}
+
+/* Modal */
 .modal {
   position: fixed;
   top: 0;
@@ -377,7 +539,8 @@ onMounted(() => {
   margin-bottom: 5px;
   font-weight: bold;
 }
-.form-group input, .form-group select {
+.form-group input,
+.form-group select {
   width: 100%;
   padding: 8px;
   border: 1px solid #ccc;
@@ -388,12 +551,6 @@ onMounted(() => {
   justify-content: flex-end;
   gap: 10px;
   margin-top: 20px;
-}
-.modal-buttons button {
-  padding: 6px 12px;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
 }
 .modal-buttons button:first-child {
   background: #ccc;
