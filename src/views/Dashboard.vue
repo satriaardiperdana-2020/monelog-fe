@@ -51,23 +51,26 @@
 
       <!-- ================= TAB LAPORAN ================= -->
       <div v-if="activeTab === 'laporan'">
-        <div class="report-header">
-          <div class="filter-bar">
-            <button @click="setFilter('7days')" :class="{ active: activeFilter === '7days' }">7 hari terakhir</button>
-            <button @click="setFilter('30days')" :class="{ active: activeFilter === '30days' }">30 hari terakhir</button>
-            <button @click="setFilter('custom')" :class="{ active: activeFilter === 'custom' }">Rentang Tanggal</button>
-          </div>
-          <div class="export-buttons">
-            <button @click="exportToCSV" class="btn-export">📄 Export CSV</button>
-            <button @click="exportToPDF" class="btn-export">📑 Export PDF</button>
-          </div>
+        <!-- Filter bar (kiri) -->
+        <div class="filter-bar">
+          <button @click="setFilter('7days')" :class="{ active: activeFilter === '7days' }">7 hari terakhir</button>
+          <button @click="setFilter('30days')" :class="{ active: activeFilter === '30days' }">30 hari terakhir</button>
+          <button @click="setFilter('custom')" :class="{ active: activeFilter === 'custom' }">Rentang Tanggal</button>
         </div>
 
+        <!-- Tombol export di tengah -->
+        <div class="export-buttons">
+          <button @click="exportToCSV" class="btn-export">📄 Export CSV</button>
+          <button @click="exportToPDF" class="btn-export">📑 Export PDF</button>
+        </div>
+
+        <!-- Date range picker (hanya jika custom) -->
         <div v-if="activeFilter === 'custom'" class="date-range">
           <label>Dari: <input type="date" v-model="customFrom" @change="fetchReport" /></label>
           <label>Sampai: <input type="date" v-model="customTo" @change="fetchReport" /></label>
         </div>
 
+        <!-- Tabel laporan -->
         <table class="report-table">
           <thead>
             <tr>
@@ -85,7 +88,7 @@
               </td>
             </tr>
             <tr v-if="reportData.length === 0">
-              <td colspan="3" class="empty">Tidak ada data</td>
+              <td colspan="3" class="empty">Tidak ada数据</td>
             </tr>
           </tbody>
           <tfoot v-if="reportData.length > 0">
@@ -401,6 +404,7 @@ onMounted(async () => {
   padding: 1rem;
 }
 
+/* Tabs */
 .tabs {
   display: flex;
   gap: 1rem;
@@ -421,6 +425,7 @@ onMounted(async () => {
   border-bottom: 2px solid #42b983;
 }
 
+/* Header dan summary */
 .header {
   text-align: center;
   margin-bottom: 2rem;
@@ -447,6 +452,7 @@ onMounted(async () => {
   cursor: pointer;
 }
 
+/* Daftar transaksi (expandable) */
 .transaction-list {
   margin-top: 1rem;
 }
@@ -502,18 +508,13 @@ onMounted(async () => {
   color: #999;
 }
 
-.report-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  margin-bottom: 1rem;
-  gap: 1rem;
-}
+/* Laporan – filter bar di kiri, export di tengah, tabel di bawah */
 .filter-bar {
   display: flex;
   gap: 0.5rem;
+  margin-bottom: 1rem;
   flex-wrap: wrap;
+  justify-content: flex-start;
 }
 .filter-bar button {
   background: #f0f0f0;
@@ -529,7 +530,9 @@ onMounted(async () => {
 }
 .export-buttons {
   display: flex;
+  justify-content: flex-start;
   gap: 0.5rem;
+  margin-bottom: 1rem;
 }
 .btn-export {
   background: #4a90e2;
@@ -539,7 +542,6 @@ onMounted(async () => {
   border-radius: 6px;
   cursor: pointer;
   font-weight: bold;
-  transition: background 0.2s;
 }
 .btn-export:hover {
   background: #357abd;
@@ -603,6 +605,7 @@ onMounted(async () => {
   color: gray;
 }
 
+/* Modal */
 .modal {
   position: fixed;
   top: 0;
