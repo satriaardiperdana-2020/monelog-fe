@@ -19,41 +19,17 @@
         <button @click="showAddModal = true" class="btn-add">Tambah</button>
       </div>
 
-      <!-- Daftar ringkasan per hari (expandable) -->
       <div class="transaction-list">
-        <div v-for="item in dailyData" :key="item.date" class="day-group">
-          <div class="day-header" @click="toggleDetails(item.date)">
-            <div class="date">{{ formatDate(item.date) }}</div>
-            <div class="day-summary">
-              <span class="expense">Pengeluaran Rp{{ formatNumber(item.total_expense) }}</span>
-              <span class="income">Pemasukan Rp{{ formatNumber(item.total_income) }}</span>
-            </div>
-          </div>
-
-          <!-- Detail transaksi untuk tanggal yang dipilih -->
-          <div v-if="expandedDate === item.date" class="day-details">
-            <div
-              v-for="detail in getDetailsForDate(item.date)"
-              :key="detail.id || detail.note + detail.category_name"
-              class="detail-row"
-            >
-              <div class="detail-info">
-                <span class="detail-name">{{ detail.category_name }}</span>
-                <span class="detail-note">{{ detail.note || '-' }}</span>
-              </div>
-              <div class="detail-amount" :class="detail.category_type">
-                {{ detail.category_type === 'expense' ? 'Pengeluaran' : 'Pemasukan' }}
-                Rp{{ formatNumber(detail.category_type === 'expense' ? detail.total_expense : detail.total_income) }}
-              </div>
-            </div>
-            <div v-if="getDetailsForDate(item.date).length === 0" class="no-detail">
-              Tidak ada transaksi detail
-            </div>
+        <div v-for="item in dailyData" :key="item.date" class="transaction-item">
+          <div class="date">{{ formatDate(item.date) }}</div>
+          <div class="details">
+            <span class="expense">Pengeluaran Rp{{ formatNumber(item.total_expense) }}</span>
+            <span class="income">Pemasukan Rp{{ formatNumber(item.total_income) }}</span>
           </div>
         </div>
       </div>
 
-      <!-- Modal Tambah Transaksi (sama seperti sebelumnya) -->
+      <!-- Modal Tambah Transaksi -->
       <div v-if="showAddModal" class="modal" @click.self="closeModal">
         <div class="modal-content">
           <h3>Tambah Transaksi</h3>
@@ -99,14 +75,7 @@ import { ref, onMounted, computed } from 'vue';
 import api from '../services/api';
 import Navbar from '../components/Navbar.vue';
 
-// Data ringkasan per hari (dari /reports/main-summary)
 const dailyData = ref([]);
-// Data detail transaksi per item (dari /reports/details-by-date)
-const detailsData = ref([]);
-// Tanggal yang sedang diexpand (menampilkan detail)
-const expandedDate = ref(null);
-
-// Data untuk kategori dan modal tambah
 const categories = ref([]);
 const showAddModal = ref(false);
 const newTransaction = ref({
@@ -117,7 +86,6 @@ const newTransaction = ref({
   date: new Date().toISOString().slice(0, 10)
 });
 
-// Helper: hari ini
 const today = new Date().toISOString().slice(0, 10);
 const totalIncomeToday = computed(() => {
   const todayData = dailyData.value.find(d => d.date === today);
@@ -132,23 +100,12 @@ const filteredCategories = computed(() => {
   return categories.value.filter(c => c.type === newTransaction.value.type);
 });
 
-// Ambil ringkasan harian (main page)
 const fetchSummary = async () => {
   try {
     const res = await api.get('/api/v1/reports/main-summary');
     dailyData.value = res.data;
   } catch (err) {
-    console.error('Gagal ambil ringkasan:', err);
-  }
-};
-
-// Ambil detail transaksi (list semua item per tanggal)
-const fetchDetails = async () => {
-  try {
-    const res = await api.get('/api/v1/reports/details-by-date');
-    detailsData.value = res.data;
-  } catch (err) {
-    console.error('Gagal ambil detail transaksi:', err);
+    console.error(err);
   }
 };
 
@@ -161,17 +118,8 @@ const fetchCategories = async () => {
       newTransaction.value.category_id = defaultCat ? defaultCat.id : null;
     }
   } catch (err) {
-    console.error('Gagal ambil kategori:', err);
+    console.error(err);
   }
-};
-
-// Mendapatkan detail transaksi untuk satu tanggal
-const getDetailsForDate = (date) => {
-  return detailsData.value.filter(item => item.date === date);
-};
-
-const toggleDetails = (date) => {
-  expandedDate.value = expandedDate.value === date ? null : date;
 };
 
 const saveTransaction = async () => {
@@ -187,8 +135,7 @@ const saveTransaction = async () => {
       note: newTransaction.value.note
     });
     closeModal();
-    await fetchSummary();
-    await fetchDetails();
+    fetchSummary();
   } catch (err) {
     alert(err.response?.data?.error || 'Gagal simpan transaksi');
   }
@@ -210,32 +157,26 @@ const filterCategories = () => {
   newTransaction.value.category_id = firstCat ? firstCat.id : null;
 };
 
-// AMAN: format angka – jika undefined/null/NaN tampilkan 0
 const formatNumber = (num) => {
-  if (num === undefined || num === null || isNaN(num)) return '0';
   return new Intl.NumberFormat('id-ID').format(num);
 };
 
 const formatDate = (dateStr) => {
   const date = new Date(dateStr);
-  const options = { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' };
-  return date.toLocaleDateString('id-ID', options);
+  return date.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' });
 };
 
 onMounted(() => {
   fetchSummary();
-  fetchDetails();
   fetchCategories();
 });
 </script>
 
 <style scoped>
-/* (styling sama seperti sebelumnya, tidak diubah) */
 .dashboard-container {
+  padding: 1rem;
   max-width: 800px;
   margin: 0 auto;
-  padding: 1rem;
-  font-family: 'Segoe UI', sans-serif;
 }
 .header {
   text-align: center;
@@ -245,17 +186,15 @@ onMounted(() => {
   margin: 0 10px;
   padding: 5px;
   cursor: pointer;
-  color: gray;
 }
 .tabs .active {
   border-bottom: 2px solid #42b983;
   font-weight: bold;
-  color: black;
 }
 .today-summary {
   background: #f5f5f5;
   padding: 1rem;
-  border-radius: 12px;
+  border-radius: 8px;
   margin: 1rem 0;
 }
 .amounts {
@@ -263,92 +202,36 @@ onMounted(() => {
   justify-content: space-between;
   margin-top: 0.5rem;
   font-size: 1.2rem;
-  font-weight: bold;
 }
 .btn-add {
   background: #42b983;
   color: white;
   border: none;
   padding: 0.5rem 1rem;
-  border-radius: 25px;
+  border-radius: 4px;
   cursor: pointer;
-  font-weight: bold;
 }
-.transaction-list {
-  margin-top: 1rem;
-}
-.day-group {
-  margin-bottom: 0.5rem;
-  border: 1px solid #e0e0e0;
-  border-radius: 12px;
-  overflow: hidden;
-}
-.day-header {
+.transaction-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0.75rem 1rem;
-  background: #fafafa;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-.day-header:hover {
-  background: #f0f0f0;
+  border-bottom: 1px solid #eee;
+  padding: 0.75rem 0;
 }
 .date {
   font-weight: bold;
-  font-size: 1rem;
+  width: 30%;
 }
-.day-summary {
+.details {
+  width: 70%;
   display: flex;
-  gap: 1rem;
+  justify-content: space-between;
 }
 .expense {
   color: #e74c3c;
 }
 .income {
   color: #2ecc71;
-}
-.day-details {
-  background: white;
-  border-top: 1px solid #eee;
-  padding: 0.5rem 1rem;
-}
-.detail-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.5rem 0;
-  border-bottom: 1px solid #f0f0f0;
-}
-.detail-row:last-child {
-  border-bottom: none;
-}
-.detail-info {
-  display: flex;
-  flex-direction: column;
-}
-.detail-name {
-  font-weight: 500;
-}
-.detail-note {
-  font-size: 0.8rem;
-  color: #666;
-}
-.detail-amount {
-  font-weight: bold;
-}
-.detail-amount.expense {
-  color: #e74c3c;
-}
-.detail-amount.income {
-  color: #2ecc71;
-}
-.no-detail {
-  padding: 1rem;
-  text-align: center;
-  color: #999;
-  font-style: italic;
 }
 .modal {
   position: fixed;
@@ -365,9 +248,8 @@ onMounted(() => {
 .modal-content {
   background: white;
   padding: 20px;
-  border-radius: 12px;
-  width: 90%;
-  max-width: 400px;
+  border-radius: 8px;
+  width: 350px;
 }
 .form-group {
   margin-bottom: 15px;
@@ -380,8 +262,6 @@ onMounted(() => {
 .form-group input, .form-group select {
   width: 100%;
   padding: 8px;
-  border: 1px solid #ccc;
-  border-radius: 6px;
 }
 .modal-buttons {
   display: flex;
@@ -390,16 +270,7 @@ onMounted(() => {
   margin-top: 20px;
 }
 .modal-buttons button {
-  padding: 6px 12px;
-  border: none;
-  border-radius: 6px;
+  padding: 5px 10px;
   cursor: pointer;
-}
-.modal-buttons button:first-child {
-  background: #ccc;
-}
-.modal-buttons button:last-child {
-  background: #42b983;
-  color: white;
 }
 </style>
