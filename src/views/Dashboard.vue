@@ -51,13 +51,18 @@
 
       <!-- ================= TAB LAPORAN ================= -->
       <div v-if="activeTab === 'laporan'">
-        <div class="filter-bar">
-          <button @click="setFilter('7days')" :class="{ active: activeFilter === '7days' }">7 hari terakhir</button>
-          <button @click="setFilter('30days')" :class="{ active: activeFilter === '30days' }">30 hari terakhir</button>
-          <button @click="setFilter('custom')" :class="{ active: activeFilter === 'custom' }">Rentang Tanggal</button>
+        <div class="report-header">
+          <div class="filter-bar">
+            <button @click="setFilter('7days')" :class="{ active: activeFilter === '7days' }">7 hari terakhir</button>
+            <button @click="setFilter('30days')" :class="{ active: activeFilter === '30days' }">30 hari terakhir</button>
+            <button @click="setFilter('custom')" :class="{ active: activeFilter === 'custom' }">Rentang Tanggal</button>
+          </div>
+          <div class="export-buttons">
+            <button @click="exportToCSV" class="btn-export">📄 Export CSV</button>
+            <button @click="exportToPDF" class="btn-export">📑 Export PDF</button>
+          </div>
         </div>
 
-        <!-- Date picker native (tanpa library) -->
         <div v-if="activeFilter === 'custom'" class="date-range">
           <label>Dari: <input type="date" v-model="customFrom" @change="fetchReport" /></label>
           <label>Sampai: <input type="date" v-model="customTo" @change="fetchReport" /></label>
@@ -140,6 +145,9 @@
 import { ref, computed, onMounted } from 'vue';
 import api from '../services/api';
 import Navbar from '../components/Navbar.vue';
+import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 // ================= DATA REAKTIF =================
 const activeTab = ref('utama');
@@ -310,6 +318,68 @@ const fetchReport = async () => {
   }
 };
 
+// ================= EXPORT =================
+const getExportFilename = (extension) => {
+  let name = 'laporan';
+  if (activeFilter.value === '7days') {
+    name = 'laporan_7_hari_terakhir';
+  } else if (activeFilter.value === '30days') {
+    name = 'laporan_30_hari_terakhir';
+  } else if (activeFilter.value === 'custom') {
+    const from = customFrom.value || 'tgl_awal';
+    const to = customTo.value || 'tgl_akhir';
+    name = `laporan_${from}_sampai_${to}`;
+  }
+  return `${name}.${extension}`;
+};
+
+const getTableData = () => {
+  return reportData.value.map(item => [
+    formatDate(item.date),
+    item.note || '-',
+    formatRupiah(item.total_expense > 0 ? item.total_expense : item.total_income)
+  ]);
+};
+
+const exportToCSV = () => {
+  if (!reportData.value.length) {
+    alert('Tidak ada data untuk diekspor');
+    return;
+  }
+  const sheetData = [
+    ['Tanggal', 'Keterangan', 'Jumlah (Rp)'],
+    ...getTableData(),
+    ['', 'Total', formatRupiah(totalReportAmount.value)]
+  ];
+  const ws = XLSX.utils.aoa_to_sheet(sheetData);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Laporan');
+  XLSX.writeFile(wb, getExportFilename('csv'), { bookType: 'csv' });
+};
+
+const exportToPDF = () => {
+  if (!reportData.value.length) {
+    alert('Tidak ada data untuk diekspor');
+    return;
+  }
+  const doc = new jsPDF();
+  doc.setFontSize(18);
+  doc.text('Laporan Keuangan - Monelog', 14, 22);
+  doc.setFontSize(11);
+  doc.text(`Periode: ${getExportFilename('').replace('.', '')}`, 14, 32);
+
+  const tableData = getTableData();
+  tableData.push(['', 'Total', formatRupiah(totalReportAmount.value)]);
+  autoTable(doc, {
+    startY: 40,
+    head: [['Tanggal', 'Keterangan', 'Jumlah (Rp)']],
+    body: tableData,
+    theme: 'striped',
+    headStyles: { fillColor: [66, 185, 131] }
+  });
+  doc.save(getExportFilename('pdf'));
+};
+
 // ================= INISIALISASI =================
 onMounted(async () => {
   await fetchSummary();
@@ -325,12 +395,12 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-/* ========== STYLE (sama seperti sebelumnya, hanya ditambah sedikit untuk date picker) ========== */
 .dashboard-container {
   max-width: 800px;
   margin: 0 auto;
   padding: 1rem;
 }
+
 .tabs {
   display: flex;
   gap: 1rem;
@@ -350,6 +420,7 @@ onMounted(async () => {
   color: #42b983;
   border-bottom: 2px solid #42b983;
 }
+
 .header {
   text-align: center;
   margin-bottom: 2rem;
@@ -375,6 +446,7 @@ onMounted(async () => {
   border-radius: 25px;
   cursor: pointer;
 }
+
 .transaction-list {
   margin-top: 1rem;
 }
@@ -429,10 +501,18 @@ onMounted(async () => {
   text-align: center;
   color: #999;
 }
+
+.report-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+  gap: 1rem;
+}
 .filter-bar {
   display: flex;
   gap: 0.5rem;
-  margin-bottom: 1rem;
   flex-wrap: wrap;
 }
 .filter-bar button {
@@ -441,15 +521,39 @@ onMounted(async () => {
   padding: 0.5rem 1rem;
   border-radius: 20px;
   cursor: pointer;
+  transition: all 0.2s;
 }
 .filter-bar button.active {
   background: #42b983;
   color: white;
 }
+.export-buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+.btn-export {
+  background: #4a90e2;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: background 0.2s;
+}
+.btn-export:hover {
+  background: #357abd;
+}
 .date-range {
   margin-bottom: 1rem;
   display: flex;
   gap: 1rem;
+  flex-wrap: wrap;
+}
+.date-range label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 .date-range input {
   padding: 0.4rem;
@@ -461,7 +565,8 @@ onMounted(async () => {
   border-collapse: collapse;
   background: white;
   border-radius: 12px;
-  overflow: hidden;
+  overflow: auto;
+  display: block;
 }
 .report-table th,
 .report-table td {
@@ -497,6 +602,7 @@ onMounted(async () => {
   padding: 2rem;
   color: gray;
 }
+
 .modal {
   position: fixed;
   top: 0;
